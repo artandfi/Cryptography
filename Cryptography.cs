@@ -5,8 +5,6 @@ using static LongArithmetics.LongNumber;
 
 namespace Cryptography {
     public static class Cryptography {
-
-
         public static (LongNumber, LongNumber) FactorizePollard(LongNumber n) {
             var rnd = new Random();
             LongNumber x = n < int.MaxValue ? rnd.Next(0, n) : rnd.Next(0, int.MaxValue);
@@ -68,7 +66,6 @@ namespace Cryptography {
                 if (n % i == 0 && IsPrime(i)) {
                     if (n % (i * i) == 0)
                         return 0;
-
                     p++;
                 }
             }
@@ -76,8 +73,42 @@ namespace Cryptography {
             return p % 2 == 0 ? 1 : -1;
         }
 
+        public static int? Legendre(LongNumber a, LongNumber p) {
+            if (p < 3 || !IsPrime(p))
+                return null;
+            
+            if (a % p == 0)
+                return 0;
 
-        private static bool IsPrime(LongNumber n) {
+            return PowMod(a, (p - 1) / 2, p) == 1 ? 1 : -1;
+        }
+        
+        public static int? Jacobi(LongNumber a, LongNumber b) {
+            if (b < 1 || b % 2 == 0)
+                return null;
+            
+            if (Gcd(a, b) != 1)
+                return 0;
+
+            a %= b;
+            var t = new LongNumber(1);
+            while (a != 0) {
+                while (a % 2 == 0) {
+                    a /= 2;
+                    var r = b % 8;
+                    if (r == 3 || r == 5)
+                        t = -t;
+                }
+                Swap(ref a, ref b);
+
+                if (a % 4 == 3 && b % 4 == 3)
+                    t = -t;
+                a %= b;
+            }
+            return b == 1 ? t : new LongNumber(0);
+        }
+
+        public static bool IsPrime(LongNumber n) {
             if (n == 2)
                 return true;
 
@@ -85,7 +116,7 @@ namespace Cryptography {
                 return false;
 
             var t = Sqrt(n);
-            for (var k = new LongNumber(3); k <= t; k += 2) {
+            for (LongNumber k = 3; k <= t; k += 2) {
                 if (n % k == 0)
                     return false;
             }
