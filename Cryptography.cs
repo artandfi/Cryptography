@@ -44,7 +44,7 @@ namespace Cryptography {
 
         public static LongNumber Phi(LongNumber n) {
             var res = n;
-            
+
             for (var i = new LongNumber(2); i * i <= n; ++i) {
                 if (n % i == 0) {
                     while (n % i == 0) {
@@ -76,17 +76,17 @@ namespace Cryptography {
         public static int? Legendre(LongNumber a, LongNumber p) {
             if (p < 3 || !IsPrime(p))
                 return null;
-            
+
             if (a % p == 0)
                 return 0;
 
             return PowMod(a, (p - 1) / 2, p) == 1 ? 1 : -1;
         }
-        
+
         public static int? Jacobi(LongNumber a, LongNumber b) {
             if (b < 1 || b % 2 == 0)
                 return null;
-            
+
             if (Gcd(a, b) != 1)
                 return 0;
 
@@ -108,6 +108,45 @@ namespace Cryptography {
             return b == 1 ? t : new LongNumber(0);
         }
 
+        public static (LongNumber, LongNumber) SqrtCipolla(LongNumber n, LongNumber p) {
+            if (Legendre(n, p) != 1) {
+                return (null, null);
+            }
+
+            LongNumber a = 0;
+            LongNumber w2;
+            while (true) {
+                w2 = (a * a + p - n) % p;
+                if (Legendre(w2, p) != 1)
+                    break;
+                a++;
+            }
+
+            var finalW = w2;
+            (LongNumber, LongNumber) MulExtended((LongNumber, LongNumber) aa, (LongNumber, LongNumber) bb) {
+                return ((aa.Item1 * bb.Item1 + aa.Item2 * bb.Item2 * finalW) % p,
+                        (aa.Item1 * bb.Item2 + bb.Item1 * aa.Item2) % p);
+            }
+
+            var r = (new LongNumber(1), new LongNumber(0));
+            var s = (a, new LongNumber(1));
+            var nn = (p + 1) / 2;
+            while (nn > 0) {
+                if (nn % 2 != 0) {
+                    r = MulExtended(r, s);
+                }
+                s = MulExtended(s, s);
+                nn /= 2;
+            }
+
+            if (r.Item2 != 0 || r.Item1 * r.Item1 % p != n) {
+                return (null, null);
+            }
+
+            return (r.Item1, p - r.Item1);
+        }
+
+        #region Inner methods
         public static bool IsPrime(LongNumber n) {
             if (n == 2)
                 return true;
@@ -124,5 +163,8 @@ namespace Cryptography {
             return true;
         }
         private static LongNumber F(LongNumber x, LongNumber n) => (x * x + 1) % n;
+
+
+        #endregion
     }
 }
