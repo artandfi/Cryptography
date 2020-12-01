@@ -146,6 +146,30 @@ namespace Cryptography {
             return (r.Item1, p - r.Item1);
         }
 
+        public static bool IsPrimeSolovayStrassen(LongNumber n, int k, out string comment) {
+            if (n < 2) {
+                comment = "Number less than 2 isn't prime.";
+                return false;
+            }
+
+            if (n % 2 == 0) {
+                comment = "An even number isn't prime.";
+                return false;
+            }
+
+            for (int i = 0; i < k; i++) {
+                var a = Rand(2, n);
+                if (Gcd(a,n) > 1 || PowMod(a, (n - 1) / 2, n) != Legendre(a, n) % n) {
+                    comment = "The number isn't prime.";
+                    return false;
+                }
+            }
+
+            double prob = 1 - Math.Pow(2, -k);
+            comment = "The number " + n + " is prime with propability " + prob + ".";
+            return true;
+        }
+
         #region Inner methods
         public static bool IsPrime(LongNumber n) {
             if (n == 2)
