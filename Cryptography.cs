@@ -20,12 +20,44 @@ namespace Cryptography {
             return d == n ? (null, null) : (d, n / d);
         }
 
+        public static LongNumber LogPollard(LongNumber a, LongNumber b, LongNumber p) {
+            var partition = MakePartition(p);
+            var ai = new LongNumber(0);
+            var bi = ai;
+            var xi = new LongNumber(1);
+            var a2i = ai;
+            var b2i = bi;
+            var x2i = xi;
+
+            while (true) {
+                xi = F(xi, a, b, partition);
+                ai = G(xi, ai, partition);
+                bi = H(xi, bi, partition);
+
+                var f = F(x2i, a, b, partition);
+                x2i = F(f, a, b, partition);
+                a2i = G(f, G(x2i, a2i, partition), partition);
+                b2i = H(f, H(x2i, b2i, partition), partition);
+
+                if (xi == x2i) {
+                    var r = bi - b2i;
+                    if (r == 0) {
+                        return null;
+                    }
+
+                    return (MulInverse(r, p) * (a2i - ai)) % p;
+                }
+            }
+        }
+
         public static LongNumber LogBabyStepGiantStep(LongNumber a, LongNumber b, LongNumber n) {
+            a %= n;
+            b %= n;
             var m = Sqrt(n) + 1;
             var g0 = PowMod(a, m, n);
             var g = g0;
             var t = new Hashtable();
-
+            
             for (var i = new LongNumber(1); i <= m; i++) {
                 t.Add(i, g);
                 g = MulMod(g, g0, n);
@@ -43,8 +75,11 @@ namespace Cryptography {
         }
 
         public static LongNumber Phi(LongNumber n) {
+            if (n < 1) {
+                return null;
+            }
+            
             var res = n;
-
             for (var i = new LongNumber(2); i * i <= n; ++i) {
                 if (n % i == 0) {
                     while (n % i == 0) {
@@ -110,7 +145,7 @@ namespace Cryptography {
 
         public static (LongNumber, LongNumber) SqrtCipolla(LongNumber n, LongNumber p) {
             if (Legendre(n, p) != 1) {
-                return (null, null);
+                return (null, 0);
             }
 
             LongNumber a = 0;
@@ -140,34 +175,30 @@ namespace Cryptography {
             }
 
             if (r.Item2 != 0 || r.Item1 * r.Item1 % p != n) {
-                return (null, null);
+                return (0, null);
             }
 
             return (r.Item1, p - r.Item1);
         }
 
-        public static bool IsPrimeSolovayStrassen(LongNumber n, int k, out string comment) {
+        public static string IsPrimeSolovayStrassen(LongNumber n, int k) {
             if (n < 2) {
-                comment = "Number less than 2 isn't prime.";
-                return false;
+                return "The number " + n + " is less than 2, hence isn't prime.";
             }
 
             if (n % 2 == 0) {
-                comment = "An even number isn't prime.";
-                return false;
+                return "The number " + n + " is even, hence isn't prime.";
             }
 
             for (int i = 0; i < k; i++) {
                 var a = Rand(2, n);
                 if (Gcd(a,n) > 1 || PowMod(a, (n - 1) / 2, n) != Legendre(a, n) % n) {
-                    comment = "The number isn't prime.";
-                    return false;
+                    return "The number " + n + " is odd and isn't prime.";
                 }
             }
 
             double prob = 1 - Math.Pow(2, -k);
-            comment = "The number " + n + " is prime with propability " + prob + ".";
-            return true;
+            return "The number " + n + " is prime with propability " + prob + ".";
         }
 
         #region Inner methods
@@ -188,6 +219,67 @@ namespace Cryptography {
         }
         private static LongNumber F(LongNumber x, LongNumber n) => (x * x + 1) % n;
 
+        private static LongNumber[] MakePartition(LongNumber p) {
+            var r = p % 3;
+            var d = p / 3;
+
+            if (r == 0) {
+                return new LongNumber[] { d, d * 2, d * 3 };
+            }
+            if (r == 1) {
+                return new LongNumber[] { d, d * 2 + 1, d * 3 + 1 };
+            }
+
+            return new LongNumber[] { d + 1, d * 2 + 1, d * 3 + 2 };
+        }
+
+        private static LongNumber F(LongNumber x, LongNumber a, LongNumber b, LongNumber[] partition) {
+            if (x >= 0 && x < partition[0]) {
+                return (b * x) % partition[2];
+            }
+
+            if (x >= partition[0] && x < partition[1]) {
+                return (x * x) % partition[2];
+            }
+
+            if (x >= partition[1] && x < partition[2]) {
+                return (a * x) % partition[2];
+            }
+
+            return null;
+        }
+        
+        private static LongNumber G(LongNumber x, LongNumber n, LongNumber[] partition) {
+            if (x >= 0 && x < partition[0]) {
+                return n % partition[2];
+            }
+
+            if (x >= partition[0] && x < partition[1]) {
+                return (n * 2) % partition[2];
+            }
+
+            if (x >= partition[1] && x < partition[2]) {
+                return (n + 1) % partition[2];
+            }
+
+            return null;
+        }
+
+        private static LongNumber H(LongNumber x, LongNumber n, LongNumber[] partition) {
+            if (x >= 0 && x < partition[0]) {
+                return (n + 1) % partition[2];
+            }
+
+            if (x >= partition[0] && x < partition[1]) {
+                return (n * 2) % partition[2];
+            }
+
+            if (x >= partition[1] && x < partition[2]) {
+                return n % partition[2];
+            }
+
+            return null;
+        }
 
         #endregion
     }
