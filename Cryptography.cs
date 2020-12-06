@@ -1,10 +1,14 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using LongArithmetics;
 using static LongArithmetics.LongNumber;
 
 namespace Cryptography {
     public static class Cryptography {
+        private const int ALPH_BASE = 28;
+        private const int ALPH_DIFF = 64;
+        
         public static (LongNumber, LongNumber) FactorizePollard(LongNumber n) {
             var rnd = new Random();
             LongNumber x = n < int.MaxValue ? rnd.Next(0, n) : rnd.Next(0, int.MaxValue);
@@ -20,54 +24,23 @@ namespace Cryptography {
             return d == n ? (null, null) : (d, n / d);
         }
 
-        public static LongNumber LogPollard(LongNumber a, LongNumber b, LongNumber p) {
-            var partition = MakePartition(p);
-            var ai = new LongNumber(0);
-            var bi = ai;
-            var xi = new LongNumber(1);
-            var a2i = ai;
-            var b2i = bi;
-            var x2i = xi;
-
-            while (true) {
-                xi = F(xi, a, b, partition);
-                ai = G(xi, ai, partition);
-                bi = H(xi, bi, partition);
-
-                var f = F(x2i, a, b, partition);
-                x2i = F(f, a, b, partition);
-                a2i = G(f, G(x2i, a2i, partition), partition);
-                b2i = H(f, H(x2i, b2i, partition), partition);
-
-                if (xi == x2i) {
-                    var r = bi - b2i;
-                    if (r == 0) {
-                        return null;
-                    }
-
-                    return (MulInverse(r, p) * (a2i - ai)) % p;
-                }
-            }
-        }
-
         public static LongNumber LogBabyStepGiantStep(LongNumber a, LongNumber b, LongNumber n) {
             a %= n;
             b %= n;
             var m = Sqrt(n) + 1;
             var g0 = PowMod(a, m, n);
             var g = g0;
-            var t = new Hashtable();
-            
+            var t = new Dictionary<string, LongNumber>();
+
             for (var i = new LongNumber(1); i <= m; i++) {
-                t.Add(i, g);
+                t.Add(g.ToString(), i);
                 g = MulMod(g, g0, n);
             }
 
-            for (var j = new LongNumber(1); j <= m; j++) {
-                foreach (LongNumber key in t.Keys) {
-                    if ((LongNumber)t[key] == MulMod(b, PowMod(a, j, n), n)) {
-                        return m * key - j;
-                    }
+            for (var j = new LongNumber(0); j < m; j++) {
+                var y = MulMod(b, PowMod(a, j, n), n);
+                if (t.ContainsKey(y.ToString())) {
+                    return m * t[y.ToString()] - j;
                 }
             }
 
@@ -201,6 +174,31 @@ namespace Cryptography {
             return "The number " + n + " is prime with propability " + prob + ".";
         }
 
+        public static void ElGamal(EllipticCurve curve) {
+            // Step 1. Bob chooses a random number k = 1, ..., N-1.
+            var k = Rand(1, curve.N);
+            var Y = curve.PointSelfSum(k, curve.G);
+
+            // Step 2. Alice's message
+            (LongNumber x, LongNumber y) M;
+            Console.Write("Enter Alice's message: ");
+            M.x = MessageToLongNumber(Console.ReadLine());
+            M.y = SqrtCipolla(Pow(M.x, 3) + curve.A * M.x + curve.B, curve.P).Item1;
+            
+            // Step 3. Encryption
+            var r = Rand(1, curve.N);
+            var D = curve.PointSelfSum(r, Y);
+            var G = curve.PointSelfSum(r, curve.G);
+            var H = curve.AddPoints(M, D);
+
+            // Step 4. Decryption
+            var S = curve.PointSelfSum(k, G);
+            var S1 = (S.Item1, (S.Item1 + S.Item2) % curve.P);
+            var M1 = curve.AddPoints(S1, H);
+            var res = LongNumberToMessage(M1.Item1);
+            Console.WriteLine("Message decrypted: " + res);
+        }
+
         #region Inner methods
         public static bool IsPrime(LongNumber n) {
             if (n == 2)
@@ -219,68 +217,32 @@ namespace Cryptography {
         }
         private static LongNumber F(LongNumber x, LongNumber n) => (x * x + 1) % n;
 
-        private static LongNumber[] MakePartition(LongNumber p) {
-            var r = p % 3;
-            var d = p / 3;
-
-            if (r == 0) {
-                return new LongNumber[] { d, d * 2, d * 3 };
-            }
-            if (r == 1) {
-                return new LongNumber[] { d, d * 2 + 1, d * 3 + 1 };
+        public static LongNumber MessageToLongNumber(string msg) {
+            LongNumber res = 0;
+            for (int k = msg.Length - 1; k >= 0; k--) {
+                var cur = msg[msg.Length - k - 1];
+                var c = cur == ' ' ? 0 : cur - ALPH_DIFF;
+                res += c * Pow(ALPH_BASE, k);
             }
 
-            return new LongNumber[] { d + 1, d * 2 + 1, d * 3 + 2 };
+            return res;
         }
 
-        private static LongNumber F(LongNumber x, LongNumber a, LongNumber b, LongNumber[] partition) {
-            if (x >= 0 && x < partition[0]) {
-                return (b * x) % partition[2];
-            }
+        public static string LongNumberToMessage(LongNumber n) {
+            string res = "";
+            int r;
+            do {
+                r = n % ALPH_BASE;
+                res += r == 0 ? ' ' : (char)(r + ALPH_DIFF);
+                n /= ALPH_BASE;
+            } while (n >= ALPH_BASE);
+            r = n;
+            res += r == 0 ? ' ' : (char)(r + ALPH_DIFF);
 
-            if (x >= partition[0] && x < partition[1]) {
-                return (x * x) % partition[2];
-            }
-
-            if (x >= partition[1] && x < partition[2]) {
-                return (a * x) % partition[2];
-            }
-
-            return null;
+            var arr = res.ToCharArray();
+            Array.Reverse(arr);
+            return new string(arr);
         }
-        
-        private static LongNumber G(LongNumber x, LongNumber n, LongNumber[] partition) {
-            if (x >= 0 && x < partition[0]) {
-                return n % partition[2];
-            }
-
-            if (x >= partition[0] && x < partition[1]) {
-                return (n * 2) % partition[2];
-            }
-
-            if (x >= partition[1] && x < partition[2]) {
-                return (n + 1) % partition[2];
-            }
-
-            return null;
-        }
-
-        private static LongNumber H(LongNumber x, LongNumber n, LongNumber[] partition) {
-            if (x >= 0 && x < partition[0]) {
-                return (n + 1) % partition[2];
-            }
-
-            if (x >= partition[0] && x < partition[1]) {
-                return (n * 2) % partition[2];
-            }
-
-            if (x >= partition[1] && x < partition[2]) {
-                return n % partition[2];
-            }
-
-            return null;
-        }
-
         #endregion
     }
 }
