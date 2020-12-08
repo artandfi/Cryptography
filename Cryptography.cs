@@ -177,14 +177,24 @@ namespace Cryptography {
         public static void ElGamal(EllipticCurve curve) {
             // Step 1. Bob chooses a random number k = 1, ..., N-1.
             var k = Rand(1, curve.N);
+            Console.WriteLine("Bob's private key: " + k.ToString());
             var Y = curve.PointSelfSum(k, curve.G);
 
             // Step 2. Alice's message
             (LongNumber x, LongNumber y) M;
-            Console.Write("Enter Alice's message: ");
+
+            // If there was a way to quickly compute Y-s on my computer,
+            // here would've been the encoding of message as the elliptic curve point.
+
+            /*Console.Write("Enter Alice's message: ");
             M.x = MessageToLongNumber(Console.ReadLine());
-            M.y = SqrtCipolla(Pow(M.x, 3) + curve.A * M.x + curve.B, curve.P).Item1;
-            
+            M.y = SqrtCipolla(Pow(M.x, 3) + curve.A * M.x + curve.B, curve.P).Item1;*/
+
+            Console.Write("Enter point's x coordinate: ");
+            M.x = new LongNumber(Console.ReadLine());
+            Console.Write("Enter point's y coordinate: ");
+            M.y = new LongNumber(Console.ReadLine());
+
             // Step 3. Encryption
             var r = Rand(1, curve.N);
             var D = curve.PointSelfSum(r, Y);
@@ -195,8 +205,11 @@ namespace Cryptography {
             var S = curve.PointSelfSum(k, G);
             var S1 = (S.Item1, (S.Item1 + S.Item2) % curve.P);
             var M1 = curve.AddPoints(S1, H);
-            var res = LongNumberToMessage(M1.Item1);
-            Console.WriteLine("Message decrypted: " + res);
+            Console.WriteLine("Point decrypted: (" + M1.Item1 + "," + M1.Item2 + ")");
+
+            // Message processing again
+            /*var res = LongNumberToMessage(M1.Item1);
+            Console.WriteLine("Message decrypted: " + res);*/
         }
 
         #region Inner methods
@@ -242,6 +255,31 @@ namespace Cryptography {
             var arr = res.ToCharArray();
             Array.Reverse(arr);
             return new string(arr);
+        }
+
+        public static LongNumber HexToDecimal(string n) {
+            const int diff = 55; // 'A' ascii code - 'A' hex number
+            const int A = 65;
+            const int F = 70;
+
+            LongNumber res = 0;
+            var len = n.Length;
+            var hex = new LongNumber(16);
+
+            for (int i = 0; i < len; i++) {
+                var d = (int)n[i];
+                if (d >= A && d <= F) {
+                    d -= diff;
+                }
+                else {
+                    d = int.Parse(n[i].ToString());
+                }
+
+                var k = n.Length - i - 1;
+                res += d * Pow(hex, k); 
+            }
+
+            return res;
         }
         #endregion
     }

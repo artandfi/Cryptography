@@ -23,7 +23,7 @@ namespace Cryptography {
         }
 
         public (LongNumber, LongNumber) AddPoints(LongNumber x1, LongNumber y1, LongNumber x2, LongNumber y2) {
-            if (!IsPointOnCurve(ref x1, ref y1) || !IsPointOnCurve(ref x2, ref y2)) {
+            if (!IsPointOnCurve(x1, y1) || !IsPointOnCurve(x2, y2)) {
                 return (null, null);
             }
 
@@ -59,7 +59,7 @@ namespace Cryptography {
             return AddPoints(p1.Item1, p1.Item2, p2.Item1, p2.Item2);
         }
 
-        private bool IsPointOnCurve(ref LongNumber x, ref LongNumber y) {
+        private bool IsPointOnCurve(LongNumber x, LongNumber y) {
             return x == -1 && y == -1 ||
                    x >= 0 && y >= 0 && x < P && y < P &&
                    (y * y) % P == (Pow(x, 3) + A * x + B) % P;
